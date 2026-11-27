@@ -38,10 +38,10 @@ def generate_excel_report(
 ) -> Path:
     """Generate an Excel workbook containing six report worksheets."""
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
     if output_path is None:
         output_path = OUTPUT_DIR / "sales_business_report.xlsx"
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Write the data worksheets.
     with pd.ExcelWriter(
