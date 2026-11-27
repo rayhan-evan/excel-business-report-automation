@@ -23,16 +23,8 @@ REQUIRED_COLUMNS = [
 
 
 def read_excel_files(data_dir: Path = DATA_DIR) -> pd.DataFrame:
-    """
-    Read all Excel workbooks from a directory and combine them.
-
-    Returns:
-        A consolidated DataFrame containing all transactions.
-
-    Raises:
-        FileNotFoundError: If no Excel files are found.
-        ValueError: If a workbook is missing required columns.
-    """
+    if not data_dir.exists():
+        raise FileNotFoundError(f"Input directory not found: {data_dir}")
 
     files = sorted(
         file for file in data_dir.glob("*.xlsx")
@@ -49,9 +41,12 @@ def read_excel_files(data_dir: Path = DATA_DIR) -> pd.DataFrame:
     for file in files:
         logger.info("Reading workbook: %s", file.name)
 
-        df = pd.read_excel(file, engine="openpyxl")
+        try:
+            df = pd.read_excel(file, engine="openpyxl")
+        except Exception:
+            logger.exception("Failed to read workbook: %s", file.name)
+            raise
 
-        # Standardize column names for schema checking.
         df.columns = df.columns.astype(str).str.strip()
 
         missing_columns = [
@@ -64,18 +59,13 @@ def read_excel_files(data_dir: Path = DATA_DIR) -> pd.DataFrame:
                 f"{file.name} is missing columns: {missing_columns}"
             )
 
-        # Track the source workbook for auditing.
         df["Source_File"] = file.name
-
         all_data.append(df)
 
-    combined_df = pd.concat(
-        all_data,
-        ignore_index=True
-    )
+    combined_df = pd.concat(all_data, ignore_index=True)
 
     logger.info(
-        "Successfully loaded %d records from %d workbooks.",
+        "Loaded %d records from %d workbooks.",
         len(combined_df),
         len(files),
     )

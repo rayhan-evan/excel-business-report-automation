@@ -65,10 +65,20 @@ def test_excel_report_generation(tmp_path):
         "Dashboard",
         "Clean Sales Data",
         "Invalid Transactions",
+        "Validation Summary",
         "Monthly Summary",
         "Branch Analysis",
         "Product Analysis",
     ]
+
+    summary = pd.read_excel(
+        result,
+        sheet_name="Validation Summary"
+    )
+
+    assert not summary.empty
+    assert "Validation_Issue" in summary.columns
+    assert "Occurrences" in summary.columns
 
     assert workbook.sheetnames == expected_sheets
 

@@ -11,6 +11,25 @@ from openpyxl.chart import BarChart, Reference
 from src.config import OUTPUT_DIR
 
 
+def build_validation_summary(invalid_df: pd.DataFrame) -> pd.DataFrame:
+    """Count rejected transactions by validation issue."""
+
+    if invalid_df.empty:
+        return pd.DataFrame(columns=["Validation_Issue", "Occurrences"])
+
+    issue_counts = (
+        invalid_df["Validation_Issues"]
+        .dropna()
+        .str.split("; ")
+        .explode()
+        .value_counts()
+        .rename_axis("Validation_Issue")
+        .reset_index(name="Occurrences")
+    )
+
+    return issue_counts
+
+
 def generate_excel_report(
     valid_df: pd.DataFrame,
     invalid_df: pd.DataFrame,
@@ -41,6 +60,12 @@ def generate_excel_report(
             sheet_name="Invalid Transactions",
             index=False
         )
+
+        build_validation_summary(invalid_df).to_excel(
+            writer,
+            sheet_name="Validation Summary",
+            index=False,
+)
 
         analytics["monthly_sales"].to_excel(
             writer,
@@ -261,6 +286,13 @@ def generate_excel_report(
 
     dashboard.freeze_panes = "A4"
 
-    workbook.save(output_path)
+    try:
+        workbook.save(output_path)
+    except PermissionError as exc:
+        raise PermissionError(
+                f"Cannot save report to '{output_path}'. "
+                "Please close the Excel workbook if it is already open, "
+                "then run the application again."
+            ) from exc
 
     return output_path
