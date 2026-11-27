@@ -7,6 +7,7 @@ from src.excel_reader import read_excel_files
 from src.data_cleaner import clean_sales_data
 from src.data_validator import validate_sales_data
 from src.analytics import generate_sales_analytics
+from src.report_generator import generate_excel_report
 
 
 def main():
@@ -51,6 +52,17 @@ def main():
         return
 
     results = generate_sales_analytics(valid_data)
+
+        # Stage 5: Generate Excel report.
+    print("\n[5] Generating Excel report...")
+
+    report_path = generate_excel_report(
+        valid_df=valid_data,
+        invalid_df=invalid_data,
+        analytics=results,
+    )
+
+    print(f"Excel report generated: {report_path}")
 
     print("\n========== BUSINESS KPIs ==========")
 
