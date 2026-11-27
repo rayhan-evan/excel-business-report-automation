@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Generated outputs and logs
+output/*
+!output/.gitkeep
+logs/*
+!logs/.gitkeep
+
+# Secrets / local configuration
+.env
+
+# IDE and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
