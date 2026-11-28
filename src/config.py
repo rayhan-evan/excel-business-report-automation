@@ -8,7 +8,7 @@ DATA_DIR = PROJECT_ROOT / "data"
 OUTPUT_DIR = PROJECT_ROOT / "output"
 LOG_DIR = PROJECT_ROOT / "logs"
 
-SUPPORTED_INPUT_SUFFIXES = {".xlsx"}
+SUPPORTED_INPUT_SUFFIXES = {".xlsx", ".csv"}
 
 LOG_FILE = LOG_DIR / "application.log"
 

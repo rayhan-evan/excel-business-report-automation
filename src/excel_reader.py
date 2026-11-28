@@ -1,13 +1,12 @@
 """Read and consolidate multiple Excel sales workbooks."""
 
 import logging
+import re
 from pathlib import Path
 
 import pandas as pd
 
-import re
-
-from src.config import DATA_DIR
+from src.config import DATA_DIR, SUPPORTED_INPUT_SUFFIXES
 
 logger = logging.getLogger(__name__)
 
@@ -120,44 +119,60 @@ def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 
 
+
 def read_excel_files(data_dir: Path = DATA_DIR) -> pd.DataFrame:
+    """Read and consolidate supported Excel and CSV sales files."""
+
     if not data_dir.exists():
-        raise FileNotFoundError(f"Input directory not found: {data_dir}")
+        raise FileNotFoundError(
+            f"Input directory not found: {data_dir}"
+        )
 
     files = sorted(
-        file for file in data_dir.glob("*.xlsx")
-        if not file.name.startswith("~$")
+        file
+        for file in data_dir.iterdir()
+        if file.is_file()
+        and file.suffix.lower() in SUPPORTED_INPUT_SUFFIXES
+        and not file.name.startswith("~$")
     )
 
     if not files:
         raise FileNotFoundError(
-            f"No Excel files found in: {data_dir}"
+            f"No supported sales files (.xlsx, .csv) found in: {data_dir}"
         )
 
     all_data = []
 
     for file in files:
-        logger.info("Reading workbook: %s", file.name)
+        logger.info("Reading sales file: %s", file.name)
 
         try:
-            df = pd.read_excel(file, engine="openpyxl")
-        except Exception:
-            logger.exception("Failed to read workbook: %s", file.name)
-            raise
+            if file.suffix.lower() == ".xlsx":
+                df = pd.read_excel(file, engine="openpyxl")
+            elif file.suffix.lower() == ".csv":
+                df = pd.read_csv(file)
+            else:
+                continue
 
-        df.columns = df.columns.astype(str).str.strip()
+        except Exception:
+            logger.exception(
+                "Failed to read sales file: %s",
+                file.name,
+            )
+            raise
 
         df.columns = df.columns.astype(str).str.strip()
 
         df = standardize_columns(df)
 
         logger.info(
-            "Standardized column names for workbook: %s",
+            "Standardized column names for file: %s",
             file.name,
         )
 
         missing_columns = [
-            column for column in REQUIRED_COLUMNS
+            column
+            for column in REQUIRED_COLUMNS
             if column not in df.columns
         ]
 
@@ -172,9 +187,10 @@ def read_excel_files(data_dir: Path = DATA_DIR) -> pd.DataFrame:
     combined_df = pd.concat(all_data, ignore_index=True)
 
     logger.info(
-        "Loaded %d records from %d workbooks.",
+        "Loaded %d records from %d files.",
         len(combined_df),
         len(files),
     )
 
     return combined_df
+
