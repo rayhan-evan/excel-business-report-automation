@@ -9,6 +9,7 @@ from src.data_cleaner import clean_sales_data
 from src.data_validator import validate_sales_data
 from src.analytics import generate_sales_analytics
 from src.report_generator import generate_excel_report
+from src.analytics import generate_sales_analytics, filter_sales_by_date
 
 logger = logging.getLogger(__name__)
 
@@ -26,10 +27,22 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "--output",
-        type=Path,
-        default=OUTPUT_DIR / "sales_business_report.xlsx",
-        help="Full path of the generated Excel report",
+    "--output",
+    type=Path,
+    default=OUTPUT_DIR / "sales_business_report.xlsx",
+    help="Full path of the generated Excel report",
+    )
+
+    parser.add_argument(
+        "--start-date",
+        type=str,
+        help="Report start date (YYYY-MM-DD)",
+    )
+
+    parser.add_argument(
+        "--end-date",
+        type=str,
+        help="Report end date (YYYY-MM-DD)",
     )
 
     return parser.parse_args()
@@ -73,6 +86,22 @@ def main():
             logger.warning("No valid transactions available.")
             print("No valid transactions available for analytics.")
             return
+
+        valid_data = filter_sales_by_date(
+            valid_data,
+            start_date=args.start_date,
+            end_date=args.end_date,
+        )
+
+        if valid_data.empty:
+            logger.warning("No transactions found in the selected date range.")
+            print("No transactions found in the selected date range.")
+            return
+
+        logger.info(
+            "Date filtering completed. %d transactions remain.",
+            len(valid_data),
+        )
 
         print("\n[4] Generating business analytics...")
         results = generate_sales_analytics(valid_data)

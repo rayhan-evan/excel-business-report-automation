@@ -2,6 +2,38 @@
 """Calculate business KPIs and sales performance analytics."""
 
 import pandas as pd
+from datetime import date
+
+
+def filter_sales_by_date(
+    df: pd.DataFrame,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> pd.DataFrame:
+    """Filter sales transactions using an inclusive date range."""
+
+    filtered_df = df.copy()
+
+    if start_date:
+        start = pd.to_datetime(start_date, errors="raise")
+        filtered_df = filtered_df[
+            filtered_df["Order_Date"] >= start
+        ]
+
+    if end_date:
+        end = pd.to_datetime(end_date, errors="raise")
+        filtered_df = filtered_df[
+            filtered_df["Order_Date"] < end + pd.Timedelta(days=1)
+        ]
+
+    if start_date and end_date:
+        if pd.to_datetime(start_date) > pd.to_datetime(end_date):
+            raise ValueError(
+                "Start date cannot be later than end date."
+            )
+
+    return filtered_df.copy()
+
 
 
 def generate_sales_analytics(
