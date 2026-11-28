@@ -30,18 +30,46 @@ def build_validation_summary(invalid_df: pd.DataFrame) -> pd.DataFrame:
     return issue_counts
 
 
+def build_data_quality_summary(data_quality: dict) -> pd.DataFrame:
+    """Create a readable data quality metrics table."""
+
+    metric_labels = {
+        "Total_Records": "Total Records",
+        "Valid_Records": "Valid Records",
+        "Invalid_Records": "Invalid Records",
+        "Data_Quality_Score": "Data Quality Score (%)",
+        "Invalid_Rate": "Invalid Rate (%)",
+        "Duplicate_Records": "Duplicate Records",
+        "Potential_Revenue": "Potential Revenue (BDT)",
+        "Accepted_Revenue": "Accepted Revenue (BDT)",
+        "Excluded_Revenue": "Excluded Revenue (BDT)",
+    }
+
+    rows = [
+        {
+            "Metric": label,
+            "Value": data_quality.get(key),
+        }
+        for key, label in metric_labels.items()
+    ]
+
+    return pd.DataFrame(rows)
+
+
 def generate_excel_report(
     valid_df: pd.DataFrame,
     invalid_df: pd.DataFrame,
     analytics: dict,
     output_path: Path | None = None,
 ) -> Path:
-    """Generate an Excel workbook containing six report worksheets."""
+    """Generate a formatted Excel business reporting workbook."""
 
     if output_path is None:
         output_path = OUTPUT_DIR / "sales_business_report.xlsx"
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    data_quality = analytics.get("data_quality", {})
 
     # Write the data worksheets.
     with pd.ExcelWriter(
@@ -64,8 +92,14 @@ def generate_excel_report(
         build_validation_summary(invalid_df).to_excel(
             writer,
             sheet_name="Validation Summary",
-            index=False,
-)
+            index=False
+        )
+
+        build_data_quality_summary(data_quality).to_excel(
+            writer,
+            sheet_name="Data Quality",
+            index=False
+        )
 
         analytics["monthly_sales"].to_excel(
             writer,
@@ -95,6 +129,7 @@ def generate_excel_report(
 
     dashboard.sheet_view.showGridLines = False
 
+    # Dashboard title.
     dashboard.merge_cells("A1:L2")
     dashboard["A1"] = "RETAIL SALES - EXECUTIVE DASHBOARD"
     dashboard["A1"].font = Font(
@@ -114,7 +149,7 @@ def generate_excel_report(
 
     kpis = analytics["kpis"]
 
-    # KPI cards.
+    # Main business KPI cards.
     cards = [
         ("A4:C4", "A5:C6", "TOTAL REVENUE",
          kpis["Total_Revenue"]),
@@ -165,7 +200,7 @@ def generate_excel_report(
         if label == "TOTAL REVENUE":
             value_cell.number_format = '"৳"#,##0.00'
 
-    # Add average order value.
+    # Additional business KPIs.
     dashboard["A7"] = "Average Order Value:"
     dashboard["A7"].font = Font(bold=True)
     dashboard["B7"] = kpis["Average_Order_Value"]
@@ -175,15 +210,121 @@ def generate_excel_report(
     dashboard["E7"].font = Font(bold=True)
     dashboard["F7"] = len(invalid_df)
 
+    # Data quality section.
+    dashboard.merge_cells("A9:L9")
+    dashboard["A9"] = "DATA QUALITY OVERVIEW"
+    dashboard["A9"].font = Font(
+        bold=True,
+        color="FFFFFF",
+        size=13
+    )
+    dashboard["A9"].fill = PatternFill(
+        "solid",
+        fgColor="17365D"
+    )
+    dashboard["A9"].alignment = Alignment(
+        horizontal="center",
+        vertical="center"
+    )
+
+    quality_cards = [
+        (
+            "A10:C10",
+            "A11:C12",
+            "DATA QUALITY SCORE",
+            data_quality.get("Data_Quality_Score"),
+            '0.00"%"'
+        ),
+        (
+            "E10:G10",
+            "E11:G12",
+            "INVALID RATE",
+            data_quality.get("Invalid_Rate"),
+            '0.00"%"'
+        ),
+        (
+            "I10:K10",
+            "I11:K12",
+            "DUPLICATE RECORDS",
+            data_quality.get("Duplicate_Records"),
+            "0"
+        ),
+        (
+            "A13:C13",
+            "A14:C15",
+            "POTENTIAL REVENUE",
+            data_quality.get("Potential_Revenue"),
+            '"৳"#,##0.00'
+        ),
+        (
+            "E13:G13",
+            "E14:G15",
+            "ACCEPTED REVENUE",
+            data_quality.get("Accepted_Revenue"),
+            '"৳"#,##0.00'
+        ),
+        (
+            "I13:K13",
+            "I14:K15",
+            "EXCLUDED REVENUE",
+            data_quality.get("Excluded_Revenue"),
+            '"৳"#,##0.00'
+        ),
+    ]
+
+    for label_range, value_range, label, value, number_format in quality_cards:
+        dashboard.merge_cells(label_range)
+        dashboard.merge_cells(value_range)
+
+        label_cell = dashboard[label_range.split(":")[0]]
+        value_cell = dashboard[value_range.split(":")[0]]
+
+        label_cell.value = label
+        value_cell.value = value if value is not None else "N/A"
+
+        label_cell.font = Font(
+            bold=True,
+            color="FFFFFF",
+            size=10
+        )
+        label_cell.fill = PatternFill(
+            "solid",
+            fgColor="4472C4"
+        )
+        label_cell.alignment = Alignment(
+            horizontal="center",
+            vertical="center"
+        )
+
+        value_cell.font = Font(
+            bold=True,
+            size=15,
+            color="17365D"
+        )
+        value_cell.fill = PatternFill(
+            "solid",
+            fgColor="D9EAF7"
+        )
+        value_cell.alignment = Alignment(
+            horizontal="center",
+            vertical="center"
+        )
+
+        if value is not None:
+            value_cell.number_format = number_format
+
     # Create Excel charts.
     chart_config = [
-        ("Monthly Summary", "Monthly Revenue", "A9"),
-        ("Branch Analysis", "Branch Revenue", "G9"),
-        ("Product Analysis", "Product Revenue", "A25"),
+        ("Monthly Summary", "Monthly Revenue", "A17"),
+        ("Branch Analysis", "Branch Revenue", "G17"),
+        ("Product Analysis", "Product Revenue", "A33"),
     ]
 
     for sheet_name, chart_title, anchor in chart_config:
         source_sheet = workbook[sheet_name]
+
+        if source_sheet.max_row < 2:
+            continue
 
         chart = BarChart()
         chart.type = "col"
@@ -273,26 +414,45 @@ def generate_excel_report(
         for column_cells in sheet.columns:
             header = str(column_cells[0].value)
 
-            if header in ("Sales_Amount", "Unit_Price", "Revenue"):
+            if header in (
+                "Sales_Amount",
+                "Unit_Price",
+                "Revenue",
+                "Potential Revenue (BDT)",
+                "Accepted Revenue (BDT)",
+                "Excluded Revenue (BDT)",
+            ):
                 for cell in column_cells[1:]:
                     cell.number_format = '"৳"#,##0.00'
 
+            if header in (
+                "Data Quality Score (%)",
+                "Invalid Rate (%)",
+            ):
+                for cell in column_cells[1:]:
+                    cell.number_format = '0.00"%"'
+
+    # Dashboard column widths.
     dashboard.column_dimensions["A"].width = 19
     dashboard.column_dimensions["B"].width = 16
+    dashboard.column_dimensions["C"].width = 16
     dashboard.column_dimensions["E"].width = 19
     dashboard.column_dimensions["F"].width = 16
+    dashboard.column_dimensions["G"].width = 16
     dashboard.column_dimensions["I"].width = 19
     dashboard.column_dimensions["J"].width = 16
+    dashboard.column_dimensions["K"].width = 16
 
     dashboard.freeze_panes = "A4"
 
+    # Save workbook.
     try:
         workbook.save(output_path)
     except PermissionError as exc:
         raise PermissionError(
-                f"Cannot save report to '{output_path}'. "
-                "Please close the Excel workbook if it is already open, "
-                "then run the application again."
-            ) from exc
+            f"Cannot save report to '{output_path}'. "
+            "Please close the Excel workbook if it is already open, "
+            "then run the application again."
+        ) from exc
 
     return output_path

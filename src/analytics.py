@@ -2,7 +2,6 @@
 """Calculate business KPIs and sales performance analytics."""
 
 import pandas as pd
-from datetime import date
 
 
 def filter_sales_by_date(
@@ -34,6 +33,79 @@ def filter_sales_by_date(
 
     return filtered_df.copy()
 
+
+def generate_data_quality_metrics(
+    raw_df: pd.DataFrame,
+    valid_df: pd.DataFrame,
+    invalid_df: pd.DataFrame,
+) -> dict:
+    """
+    Calculate data quality metrics and revenue reconciliation.
+
+    Metrics are calculated across the complete input dataset,
+    independently of business analytics date filters.
+    """
+
+    total_records = len(raw_df)
+    valid_records = len(valid_df)
+    invalid_records = len(invalid_df)
+
+    quality_score = (
+        (valid_records / total_records) * 100
+        if total_records else 0
+    )
+
+    invalid_rate = (
+        (invalid_records / total_records) * 100
+        if total_records else 0
+    )
+
+    # Calculate revenue from rows with positive numeric quantities
+    # and prices, even if other validation rules reject those rows.
+    quantity = pd.to_numeric(
+        raw_df["Quantity"],
+        errors="coerce",
+    )
+
+    unit_price = pd.to_numeric(
+        raw_df["Unit_Price"],
+        errors="coerce",
+    )
+
+    calculable_mask = (
+        quantity.notna()
+        & unit_price.notna()
+        & (quantity > 0)
+        & (unit_price > 0)
+    )
+
+    potential_revenue = (
+        quantity[calculable_mask]
+        * unit_price[calculable_mask]
+    ).sum()
+
+    accepted_revenue = valid_df["Sales_Amount"].sum()
+
+    excluded_revenue = potential_revenue - accepted_revenue
+
+    duplicate_count = (
+        invalid_df["Validation_Issues"]
+        .fillna("")
+        .str.contains("Duplicate Transaction_ID")
+        .sum()
+    )
+
+    return {
+        "Total_Records": int(total_records),
+        "Valid_Records": int(valid_records),
+        "Invalid_Records": int(invalid_records),
+        "Data_Quality_Score": round(float(quality_score), 2),
+        "Invalid_Rate": round(float(invalid_rate), 2),
+        "Duplicate_Records": int(duplicate_count),
+        "Potential_Revenue": round(float(potential_revenue), 2),
+        "Accepted_Revenue": round(float(accepted_revenue), 2),
+        "Excluded_Revenue": round(float(excluded_revenue), 2),
+    }
 
 
 def generate_sales_analytics(

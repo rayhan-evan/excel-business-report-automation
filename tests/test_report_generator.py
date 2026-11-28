@@ -66,6 +66,7 @@ def test_excel_report_generation(tmp_path):
         "Clean Sales Data",
         "Invalid Transactions",
         "Validation Summary",
+        "Data Quality",
         "Monthly Summary",
         "Branch Analysis",
         "Product Analysis",
@@ -81,6 +82,15 @@ def test_excel_report_generation(tmp_path):
     assert "Occurrences" in summary.columns
 
     assert workbook.sheetnames == expected_sheets
+
+    quality_sheet = pd.read_excel(
+        result,
+        sheet_name="Data Quality"
+    )
+
+    assert not quality_sheet.empty
+    assert "Metric" in quality_sheet.columns
+    assert "Value" in quality_sheet.columns
 
     assert len(workbook["Dashboard"]._charts) == 3
 
